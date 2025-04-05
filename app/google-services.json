@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "823433069866",
+    "project_id": "dynamicislandai",
+    "storage_bucket": "dynamicislandai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:823433069866:android:b8f67b8363811bc65cca53",
+        "android_client_info": {
+          "package_name": "com.almobarmg.dynamicislandai"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCxjQcRSW0LmKDW2J9b6dPkTTg2HS8e5cI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

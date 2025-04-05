@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">DynamicIslandAi</string>
+    <string name="admob_banner_id">ca-app-pub-3940256099942544/6300978111</string>
+    <string name="onboarding_title">Welcome to DynamicIsland!</string>
+    <string name="onboarding_desc">Tap to expand, swipe to switch, up to dismiss, left for settings.</string>
+    <string name="skip">Skip</string>
+    <string name="next">Next</string>
+    <string name="finish">Finish</string>
+    <!-- Spanish Localization -->
+    <string name="onboarding_title_es">¡Bienvenido a DynamicIsland!</string>
+    <string name="onboarding_desc_es">Toca para expandir, desliza para cambiar, arriba para cerrar, izquierda para configuraciones.</string>
+    <string name="skip_es">Omitir</string>
+    <string name="next_es">Siguiente</string>
+    <string name="finish_es">Terminar</string>
+    <string name="show_island">Show Dynamic Island</string>
+</resources>
