@@ -1,11 +1,10 @@
 package com.almobarmg.dynamicislandai
 
-
 import android.app.ActivityManager
 import android.content.Context
 import android.os.BatteryManager
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material.Text
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -14,13 +13,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import java.io.RandomAccessFile
-import dagger.hilt.android.qualifiers.ActivityContext
-import javax.inject.Inject
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
 import timber.log.Timber
+import java.io.RandomAccessFile
+import javax.inject.Inject
 
-class SystemStats @Inject constructor(@ActivityContext private val context: Context) {
+class SystemStats @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
     private val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
     private val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
 
@@ -44,7 +45,9 @@ class SystemStats @Inject constructor(@ActivityContext private val context: Cont
         }
 
         Column(
-            modifier = Modifier.semantics { contentDescription = "System Stats: CPU ${cpuUsage.value}%, RAM ${ramUsage.value} MB, Battery ${batteryLevel.value}%" }
+            modifier = Modifier.semantics {
+                contentDescription = "System Stats: CPU ${cpuUsage.value}%, RAM ${ramUsage.value} MB, Battery ${batteryLevel.value}%"
+            }
         ) {
             Text("CPU: ${cpuUsage.value.toInt()}%", color = Color.White)
             Text("RAM: ${ramUsage.value} MB", color = Color.White)

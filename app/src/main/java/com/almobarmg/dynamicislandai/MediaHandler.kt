@@ -23,13 +23,13 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
-import dagger.hilt.android.qualifiers.ActivityContext
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
 import timber.log.Timber
 import javax.inject.Inject
 
 class MediaHandler @Inject constructor(
-    @ActivityContext private val context: Context
+    @ApplicationContext private val context: Context
 ) {
     private val mediaSession = MediaSessionCompat(context, "DynamicIslandMedia").apply {
         setCallback(object : MediaSessionCompat.Callback() {

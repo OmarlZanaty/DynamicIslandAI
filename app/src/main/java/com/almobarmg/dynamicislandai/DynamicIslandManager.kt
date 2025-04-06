@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -68,7 +69,11 @@ class DynamicIslandManager @Inject constructor(
                     elevation = 20f
                     setLayerType(View.LAYER_TYPE_HARDWARE, null)
                     // Set initial position to center
-                    x = (rootView.width - width) / 2f
+                    val displayMetrics = context.resources.displayMetrics
+                    val screenWidth = displayMetrics.widthPixels
+                    x = (screenWidth - width) / 2f
+                    y = getStatusBarHeight().toFloat() + 20f // Position just below status bar
+                    Timber.d("Initial position set: x=$x, y=$y")
                 }
                 Timber.d("Adding islandView to rootView")
                 rootView.addView(islandView)
@@ -83,7 +88,6 @@ class DynamicIslandManager @Inject constructor(
             Timber.i("Dynamic Island initialized successfully")
         } catch (e: Exception) {
             Timber.e(e, "Failed to initialize Dynamic Island")
-            throw e
         }
     }
 
@@ -98,22 +102,27 @@ class DynamicIslandManager @Inject constructor(
                     visibility = View.GONE
                     elevation = 20f
                     setLayerType(View.LAYER_TYPE_HARDWARE, null)
-                    x = (rootView!!.width - width) / 2f
+                    val displayMetrics = context.resources.displayMetrics
+                    val screenWidth = displayMetrics.widthPixels
+                    x = (screenWidth - width) / 2f
+                    y = getStatusBarHeight().toFloat() + 20f
+                    Timber.d("New position set after adding content: x=$x, y=$y")
                 }
                 rootView?.addView(islandView)
                 adjustForCutout(rootView!!)
                 setupGestures(rootView!!)
             }
             updateIsland()
+            expand()
             analytics.logEvent("content_shown") {
                 param("content_count", _stackedContent.size.toString())
             }
             Timber.i("Content added to Dynamic Island, stack size: ${_stackedContent.size}")
         } catch (e: Exception) {
             Timber.e(e, "Failed to show content")
-            throw e
         }
     }
+
     fun updateIsland() {
         try {
             if (!powerManager.isPowerSaveMode) {
@@ -138,14 +147,16 @@ class DynamicIslandManager @Inject constructor(
                                 .fillMaxHeight()
                                 .clip(shapeFromPrefs())
                                 .background(Color.Black.copy(alpha = 0.9f))
-                                .padding(horizontal = 24.dp, vertical = 12.dp) // Padding before border
-                                .border(0.5.dp, Color.White.copy(alpha = 0.1f), shapeFromPrefs()) // Thinner, more transparent border
+                                .padding(horizontal = 32.dp, vertical = 16.dp)
+                                .border(0.5.dp, Color.White.copy(alpha = 0.1f), shapeFromPrefs())
                                 .semantics { contentDescription = "Dynamic Island Content Scroll" },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             items(_stackedContent.size) { index ->
                                 Box(
-                                    modifier = Modifier.padding(horizontal = 12.dp),
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp)
+                                        .wrapContentWidth(),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     _stackedContent[index]()
@@ -168,7 +179,6 @@ class DynamicIslandManager @Inject constructor(
             }
         } catch (e: Exception) {
             Timber.e(e, "Failed to update Dynamic Island")
-            throw e
         }
     }
 
@@ -182,17 +192,19 @@ class DynamicIslandManager @Inject constructor(
 
             if (cutout != null) {
                 val safeInsetTop = cutout.safeInsetTop
-                islandView?.y = safeInsetTop.toFloat() + statusBarHeight.toFloat() + 60f // Increased padding
+                islandView?.y = safeInsetTop.toFloat() + statusBarHeight.toFloat() + 20f
                 islandView?.x = (rootView.width - (islandView?.width ?: 0)) / 2f
             } else {
-                islandView?.y = statusBarHeight.toFloat() + 60f // Increased padding
+                islandView?.y = statusBarHeight.toFloat() + 20f
                 islandView?.x = (rootView.width - (islandView?.width ?: 0)) / 2f
             }
             Timber.i("Adjusted Dynamic Island position: x=${islandView?.x}, y=${islandView?.y}")
         } catch (e: Exception) {
             Timber.e(e, "Failed to adjust for cutout, using fallback position")
-            islandView?.x = (rootView.width - (islandView?.width ?: 0)) / 2f
-            islandView?.y = 120f // Increased fallback position
+            val displayMetrics = context.resources.displayMetrics
+            val screenWidth = displayMetrics.widthPixels
+            islandView?.x = (screenWidth - (islandView?.width ?: 0)) / 2f
+            islandView?.y = getStatusBarHeight().toFloat() + 20f
         }
     }
 
@@ -214,11 +226,6 @@ class DynamicIslandManager @Inject constructor(
                     MotionEvent.ACTION_DOWN -> {
                         dragStartX = event.rawX
                         Timber.d("Gesture: ACTION_DOWN at rawX=${event.rawX}")
-                    }
-                    MotionEvent.ACTION_MOVE -> {
-                        v.x = event.rawX - v.width / 2
-                        v.y = event.rawY - v.height / 2
-                        Timber.d("Gesture: ACTION_MOVE to x=${v.x}, y=${v.y}")
                     }
                     MotionEvent.ACTION_UP -> {
                         dragEndX = event.rawX
@@ -244,45 +251,62 @@ class DynamicIslandManager @Inject constructor(
     }
 
     private fun expand() {
-        Timber.d("Expanding Dynamic Island")
-        islandView?.animate()
-            ?.scaleX(1.8f)?.scaleY(1.8f) // Larger scale for better visibility
-            ?.setDuration(300L)
-            ?.setInterpolator(OvershootInterpolator())
-            ?.start()
-        analytics.logEvent("island_expanded") {}
-        Timber.i("Dynamic Island expanded")
+        try {
+            Timber.d("Expanding Dynamic Island")
+            islandView?.animate()
+                ?.scaleX(1.8f)?.scaleY(1.8f)
+                ?.setDuration(300L)
+                ?.setInterpolator(OvershootInterpolator())
+                ?.start()
+            analytics.logEvent("island_expanded") {}
+            Timber.i("Dynamic Island expanded")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to expand Dynamic Island")
+        }
     }
+
     fun dismiss() {
-        Timber.d("Dismissing Dynamic Island")
-        _stackedContent.clear()
-        islandView?.visibility = View.GONE
-        analytics.logEvent("island_dismissed") {}
-        Timber.i("Dynamic Island dismissed")
+        try {
+            Timber.d("Dismissing Dynamic Island")
+            _stackedContent.clear()
+            islandView?.visibility = View.GONE
+            analytics.logEvent("island_dismissed") {}
+            Timber.i("Dynamic Island dismissed")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to dismiss Dynamic Island")
+        }
     }
 
     private fun switchContent() {
-        Timber.d("Switching content in Dynamic Island")
-        if (_stackedContent.isNotEmpty()) {
-            val rotatedList = _stackedContent.toMutableList().apply {
-                add(0, removeAt(size - 1))
+        try {
+            Timber.d("Switching content in Dynamic Island")
+            if (_stackedContent.isNotEmpty()) {
+                val rotatedList = _stackedContent.toMutableList().apply {
+                    add(0, removeAt(size - 1))
+                }
+                _stackedContent.clear()
+                _stackedContent.addAll(rotatedList)
+                updateIsland()
+                analytics.logEvent("content_switched") {}
+                Timber.i("Dynamic Island content switched")
             }
-            _stackedContent.clear()
-            _stackedContent.addAll(rotatedList)
-            updateIsland()
-            analytics.logEvent("content_switched") {}
-            Timber.i("Dynamic Island content switched")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to switch content in Dynamic Island")
         }
     }
 
     private fun toggleSettings() {
-        Timber.d("Opening SettingsActivity from Dynamic Island")
-        val intent = Intent(context, SettingsActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            Timber.d("Opening SettingsActivity from Dynamic Island")
+            val intent = Intent(context, SettingsActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            analytics.logEvent("settings_opened") {}
+            Timber.i("Settings activity opened")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to open SettingsActivity")
         }
-        context.startActivity(intent)
-        analytics.logEvent("settings_opened") {}
-        Timber.i("Settings activity opened")
     }
 
     private fun shapeFromPrefs() = when (prefs.getString("shape", "pill")) {
@@ -292,27 +316,52 @@ class DynamicIslandManager @Inject constructor(
     }
 
     private fun createIslandView(): View {
-        Timber.d("Creating ComposeView for Dynamic Island")
-        val displayMetrics = context.resources.displayMetrics
-        val screenWidth = displayMetrics.widthPixels
-        val islandWidth = (screenWidth * 0.5).toInt()
-        // Adjust height based on content
-        val baseHeight = 100
-        val additionalHeightPerItem = 20 // Add 20 pixels per additional item
-        val islandHeight = baseHeight + (_stackedContent.size - 1) * additionalHeightPerItem
+        try {
+            Timber.d("Creating ComposeView for Dynamic Island")
+            val displayMetrics = context.resources.displayMetrics
+            val screenWidth = displayMetrics.widthPixels
+            // Adjust width based on content
+            val baseWidth = (screenWidth * 0.5).toInt()
+            val additionalWidthPerItem = 50 // Add 50 pixels per additional item
+            val islandWidth = baseWidth + (_stackedContent.size - 1) * additionalWidthPerItem
+            // Adjust height based on content
+            val baseHeight = 100
+            val additionalHeightPerItem = 20 // Add 20 pixels per additional item
+            val islandHeight = baseHeight + (_stackedContent.size - 1) * additionalHeightPerItem
 
-        return ComposeView(context).apply {
-            id = R.id.compose_host
-            layoutParams = ViewGroup.LayoutParams(islandWidth, islandHeight)
-            x = (screenWidth - islandWidth) / 2f
+            return ComposeView(context).apply {
+                id = R.id.compose_host
+                layoutParams = ViewGroup.LayoutParams(islandWidth, islandHeight)
+                x = (screenWidth - islandWidth) / 2f
+                y = getStatusBarHeight().toFloat() + 20f
+                Timber.d("ComposeView created with width=$islandWidth, height=$islandHeight")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to create island view, using default dimensions")
+            val displayMetrics = context.resources.displayMetrics
+            val screenWidth = displayMetrics.widthPixels
+            val defaultWidth = (screenWidth * 0.5).toInt()
+            val defaultHeight = 100
+            return ComposeView(context).apply {
+                id = R.id.compose_host
+                layoutParams = ViewGroup.LayoutParams(defaultWidth, defaultHeight)
+                x = (screenWidth - defaultWidth) / 2f
+                y = getStatusBarHeight().toFloat() + 20f
+                Timber.d("ComposeView created with default width=$defaultWidth, height=$defaultHeight")
+            }
         }
     }
+
     fun cleanup() {
-        Timber.d("Cleaning up DynamicIslandManager")
-        islandView?.let { rootView?.removeView(it) }
-        islandView = null
-        rootView = null
-        _stackedContent.clear()
-        Timber.i("DynamicIslandManager cleaned up")
+        try {
+            Timber.d("Cleaning up DynamicIslandManager")
+            islandView?.let { rootView?.removeView(it) }
+            islandView = null
+            rootView = null
+            _stackedContent.clear()
+            Timber.i("DynamicIslandManager cleaned up")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to clean up DynamicIslandManager")
+        }
     }
 }

@@ -63,6 +63,7 @@ dependencies {
 
     // Hilt for dependency injection
     implementation("com.google.dagger:hilt-android:2.52")
+    implementation(libs.androidx.ui.tooling.preview.android)
     ksp("com.google.dagger:hilt-compiler:2.52")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
 

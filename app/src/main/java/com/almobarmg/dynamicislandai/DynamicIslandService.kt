@@ -12,9 +12,16 @@ import android.os.Build
 import android.os.IBinder
 import android.view.ViewGroup
 import android.view.WindowManager
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationCompat
 import dagger.hilt.android.AndroidEntryPoint
@@ -27,6 +34,12 @@ class DynamicIslandService : Service() {
     @Inject
     lateinit var dynamicIslandManager: DynamicIslandManager
 
+    @Inject
+    lateinit var mediaHandler: MediaHandler
+
+    @Inject
+    lateinit var systemStats: SystemStats
+
     private val notificationReceiver = NotificationReceiver()
     private var windowManager: WindowManager? = null
     private var overlayView: ViewGroup? = null
@@ -35,44 +48,45 @@ class DynamicIslandService : Service() {
         super.onCreate()
         Timber.d("DynamicIslandService created")
 
-        // Register the broadcast receiver to listen for notifications
-        val filter = IntentFilter("com.almobarmg.dynamicislandai.NOTIFICATION_RECEIVED")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(notificationReceiver, filter, RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(notificationReceiver, filter)
+        try {
+            // Register the broadcast receiver to listen for notifications
+            val filter = IntentFilter("com.almobarmg.dynamicislandai.NOTIFICATION_RECEIVED")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(notificationReceiver, filter, RECEIVER_EXPORTED)
+            } else {
+                registerReceiver(notificationReceiver, filter)
+            }
+            Timber.d("Broadcast receiver registered")
+
+            // Start as a foreground service
+            startForegroundService()
+
+            // Create a system overlay window
+            setupOverlayWindow()
+
+            // Initialize DynamicIslandManager with the overlay view
+            dynamicIslandManager.initialize(overlayView)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to initialize DynamicIslandService")
+            stopSelf() // Stop the service if initialization fails
         }
-        Timber.d("Broadcast receiver registered")
-
-        // Start as a foreground service
-        startForegroundService()
-
-        // Create a system overlay window
-        setupOverlayWindow()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Timber.d("DynamicIslandService started")
-
-        // Try to initialize with the root view from MainActivity
-        val rootView = (applicationContext as? MainActivity)?.findViewById<ViewGroup>(android.R.id.content)
-        if (rootView != null) {
-            dynamicIslandManager.initialize(rootView)
-        } else {
-            // If root view is not available, use the overlay view
-            Timber.w("Root view not available, using system overlay")
-            dynamicIslandManager.initialize(overlayView)
-        }
-
         return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterReceiver(notificationReceiver)
-        dynamicIslandManager.cleanup()
-        windowManager?.removeView(overlayView)
-        Timber.d("DynamicIslandService destroyed")
+        try {
+            unregisterReceiver(notificationReceiver)
+            dynamicIslandManager.cleanup()
+            windowManager?.removeView(overlayView)
+            Timber.d("DynamicIslandService destroyed")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to destroy DynamicIslandService")
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -80,49 +94,59 @@ class DynamicIslandService : Service() {
     }
 
     private fun startForegroundService() {
-        val channelId = "DynamicIslandServiceChannel"
-        val channelName = "Dynamic Island Service"
+        try {
+            val channelId = "DynamicIslandServiceChannel"
+            val channelName = "Dynamic Island Service"
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                channelId,
-                channelName,
-                NotificationManager.IMPORTANCE_LOW
-            )
-            val notificationManager = getSystemService(NotificationManager::class.java)
-            notificationManager.createNotificationChannel(channel)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    channelId,
+                    channelName,
+                    NotificationManager.IMPORTANCE_LOW
+                )
+                val notificationManager = getSystemService(NotificationManager::class.java)
+                notificationManager.createNotificationChannel(channel)
+            }
+
+            val notification: Notification = NotificationCompat.Builder(this, channelId)
+                .setContentTitle("Dynamic Island Service")
+                .setContentText("Running in the background to manage Dynamic Island")
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .build()
+
+            startForeground(1, notification)
+            Timber.d("Foreground service started")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to start foreground service")
+            stopSelf() // Stop the service if foreground setup fails
         }
-
-        val notification: Notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Dynamic Island Service")
-            .setContentText("Running in the background to manage Dynamic Island")
-            .setSmallIcon(android.R.drawable.ic_dialog_info) // Use a default icon for now
-            .build()
-
-        startForeground(1, notification)
     }
 
     private fun setupOverlayWindow() {
-        windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        overlayView = ViewGroup.inflate(this, android.R.layout.simple_list_item_1, null) as ViewGroup
+        try {
+            windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+            overlayView = ViewGroup.inflate(this, android.R.layout.simple_list_item_1, null) as ViewGroup
 
-        val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            } else {
-                @Suppress("DEPRECATION")
-                WindowManager.LayoutParams.TYPE_PHONE
-            },
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-            android.graphics.PixelFormat.TRANSLUCENT
-        )
+            val params = WindowManager.LayoutParams(
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                } else {
+                    @Suppress("DEPRECATION")
+                    WindowManager.LayoutParams.TYPE_PHONE
+                },
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                android.graphics.PixelFormat.TRANSLUCENT
+            )
 
-        // Ensure the overlay respects the status bar
-        val statusBarHeight = getStatusBarHeight()
-        params.y = statusBarHeight + 60 // Match the padding used in adjustForCutout
-        windowManager?.addView(overlayView, params)
+            val statusBarHeight = getStatusBarHeight()
+            params.y = statusBarHeight + 20 // Position just below the status bar
+            windowManager?.addView(overlayView, params)
+            Timber.d("Overlay window set up with y position: ${params.y}")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to set up overlay window")
+        }
     }
 
     private fun getStatusBarHeight(): Int {
@@ -134,22 +158,65 @@ class DynamicIslandService : Service() {
         Timber.d("Calculated status bar height: $statusBarHeight")
         return statusBarHeight
     }
+
     inner class NotificationReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            Timber.d("Received notification broadcast with intent: $intent")
-            val notificationText = intent?.getStringExtra("notification_text") ?: "New Notification"
-            val packageName = intent?.getStringExtra("package_name") ?: "Unknown"
-            Timber.i("Processing notification: $packageName - $notificationText")
+            try {
+                Timber.d("Received notification broadcast with intent: $intent")
+                if (intent?.action != "com.almobarmg.dynamicislandai.NOTIFICATION_RECEIVED") {
+                    Timber.w("Received broadcast with unexpected action: ${intent?.action}")
+                    return
+                }
 
-            // Show the notification in the Dynamic Island
-            dynamicIslandManager.showContent {
-                Text(
-                    text = "$packageName: $notificationText",
-                    style = TextStyle(
-                        fontSize = 20.sp,
-                        color = Color.White
+                val title = intent.getStringExtra("notification_title") ?: "New Notification"
+                val text = intent.getStringExtra("notification_text") ?: ""
+                val packageName = intent.getStringExtra("package_name") ?: "Unknown"
+                val isMediaNotification = intent.getBooleanExtra("is_media_notification", false)
+                Timber.i("Processing notification: $packageName - $title - $text (isMedia: $isMediaNotification)")
+
+                // Show the notification in the Dynamic Island
+                dynamicIslandManager.showContent {
+                    NotificationContent(
+                        title = title,
+                        text = text,
+                        packageName = packageName,
+                        isMediaNotification = isMediaNotification
                     )
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to process notification broadcast")
+            }
+        }
+    }
+
+    @Composable
+    fun NotificationContent(
+        title: String,
+        text: String,
+        packageName: String,
+        isMediaNotification: Boolean
+    ) {
+        Column(
+            modifier = Modifier
+                .semantics { contentDescription = "Notification: $title from $packageName" }
+                .padding(vertical = 8.dp)
+        ) {
+            Text(
+                text = "$packageName: $title",
+                style = TextStyle(fontSize = 20.sp, color = Color.White),
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+            if (text.isNotEmpty()) {
+                Text(
+                    text = text,
+                    style = TextStyle(fontSize = 16.sp, color = Color.White.copy(alpha = 0.8f)),
+                    modifier = Modifier.padding(bottom = 4.dp)
                 )
+            }
+            if (isMediaNotification) {
+                mediaHandler.MediaControls()
+            } else {
+                systemStats.StatsDisplay()
             }
         }
     }
