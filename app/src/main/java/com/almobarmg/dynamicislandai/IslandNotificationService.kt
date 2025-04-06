@@ -52,9 +52,13 @@ class IslandNotificationService : NotificationListenerService() {
         Timber.w("Notification listener disconnected")
     }
 
-    override fun onNotificationPosted(sbn: StatusBarNotification) {
+    override fun onNotificationPosted(sbn: StatusBarNotification?) {
         try {
             Timber.d("onNotificationPosted called with sbn: $sbn")
+            if (sbn == null) {
+                Timber.w("Received null StatusBarNotification")
+                return
+            }
 
             // Log notification details
             Timber.d("Notification package: ${sbn.packageName}, id: ${sbn.id}, tag: ${sbn.tag}")
@@ -78,17 +82,19 @@ class IslandNotificationService : NotificationListenerService() {
             }
 
             // Extract notification details
-            val title = sbn.notification.extras.getString("android.title") ?: "New Notification"
-            val text = sbn.notification.extras.getString("android.text") ?: ""
+            val notification: Notification = sbn.notification
+            val title = notification.extras.getString("android.title") ?: "New Notification"
+            val text = notification.extras.getString("android.text") ?: ""
             val packageName = sbn.packageName
-            Timber.i("Notification received: $packageName - $title - $text")
+            val isMediaNotification = isMediaNotification(sbn)
+            Timber.i("Notification received: $packageName - $title - $text (isMedia: $isMediaNotification)")
 
             // Send a broadcast to DynamicIslandService to handle the notification
             val intent = Intent("com.almobarmg.dynamicislandai.NOTIFICATION_RECEIVED").apply {
                 putExtra("notification_title", title)
                 putExtra("notification_text", text)
                 putExtra("package_name", packageName)
-                putExtra("is_media_notification", isMediaNotification(sbn))
+                putExtra("is_media_notification", isMediaNotification)
             }
             sendBroadcast(intent)
             Timber.d("Broadcast sent for notification: $title")

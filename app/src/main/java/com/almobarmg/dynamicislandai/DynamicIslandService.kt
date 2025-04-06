@@ -65,10 +65,37 @@ class DynamicIslandService : Service() {
             setupOverlayWindow()
 
             // Initialize DynamicIslandManager with the overlay view
-            dynamicIslandManager.initialize(overlayView)
+            if (overlayView != null) {
+                dynamicIslandManager.initialize(overlayView)
+            } else {
+                Timber.e("Overlay view is null, cannot initialize DynamicIslandManager")
+                stopSelf()
+                return
+            }
+
+            // Add test content to confirm the Dynamic Island is working
+            dynamicIslandManager.showContent {
+                Column(
+                    modifier = Modifier
+                        .semantics { contentDescription = "Test Content" }
+                        .padding(vertical = 8.dp)
+                ) {
+                    Text(
+                        text = "Test Dynamic Island",
+                        style = TextStyle(fontSize = 20.sp, color = Color.White),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Text(
+                        text = "This is a test message",
+                        style = TextStyle(fontSize = 16.sp, color = Color.White.copy(alpha = 0.8f)),
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+            }
+            Timber.d("Added test content to Dynamic Island")
         } catch (e: Exception) {
             Timber.e(e, "Failed to initialize DynamicIslandService")
-            stopSelf() // Stop the service if initialization fails
+            stopSelf()
         }
     }
 
@@ -106,19 +133,27 @@ class DynamicIslandService : Service() {
                 )
                 val notificationManager = getSystemService(NotificationManager::class.java)
                 notificationManager.createNotificationChannel(channel)
+                Timber.d("Notification channel created for foreground service: $channelId")
             }
 
-            val notification: Notification = NotificationCompat.Builder(this, channelId)
+            val notificationBuilder = NotificationCompat.Builder(this, channelId)
                 .setContentTitle("Dynamic Island Service")
                 .setContentText("Running in the background to manage Dynamic Island")
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .build()
+
+            // Set the foreground service type explicitly for Android 14+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                notificationBuilder.setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
+            }
+
+            val notification = notificationBuilder.build()
+            Timber.d("Foreground notification built")
 
             startForeground(1, notification)
-            Timber.d("Foreground service started")
+            Timber.d("Foreground service started successfully")
         } catch (e: Exception) {
             Timber.e(e, "Failed to start foreground service")
-            stopSelf() // Stop the service if foreground setup fails
+            stopSelf()
         }
     }
 
@@ -141,11 +176,12 @@ class DynamicIslandService : Service() {
             )
 
             val statusBarHeight = getStatusBarHeight()
-            params.y = statusBarHeight + 20 // Position just below the status bar
+            params.y = statusBarHeight + 150 // Increased offset to ensure visibility
             windowManager?.addView(overlayView, params)
             Timber.d("Overlay window set up with y position: ${params.y}")
         } catch (e: Exception) {
             Timber.e(e, "Failed to set up overlay window")
+            stopSelf()
         }
     }
 

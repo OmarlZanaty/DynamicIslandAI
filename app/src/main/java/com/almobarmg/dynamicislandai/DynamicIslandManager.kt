@@ -72,7 +72,7 @@ class DynamicIslandManager @Inject constructor(
                     val displayMetrics = context.resources.displayMetrics
                     val screenWidth = displayMetrics.widthPixels
                     x = (screenWidth - width) / 2f
-                    y = getStatusBarHeight().toFloat() + 20f // Position just below status bar
+                    y = getStatusBarHeight().toFloat() + 100f // Match the offset from DynamicIslandService
                     Timber.d("Initial position set: x=$x, y=$y")
                 }
                 Timber.d("Adding islandView to rootView")
@@ -105,7 +105,7 @@ class DynamicIslandManager @Inject constructor(
                     val displayMetrics = context.resources.displayMetrics
                     val screenWidth = displayMetrics.widthPixels
                     x = (screenWidth - width) / 2f
-                    y = getStatusBarHeight().toFloat() + 20f
+                    y = getStatusBarHeight().toFloat() + 100f
                     Timber.d("New position set after adding content: x=$x, y=$y")
                 }
                 rootView?.addView(islandView)
@@ -125,58 +125,55 @@ class DynamicIslandManager @Inject constructor(
 
     fun updateIsland() {
         try {
-            if (!powerManager.isPowerSaveMode) {
-                val composeView = islandView?.findViewById<ComposeView>(R.id.compose_host)
-                if (composeView == null) {
-                    Timber.e("ComposeView not found in islandView")
-                    return
-                }
+            val composeView = islandView?.findViewById<ComposeView>(R.id.compose_host)
+            if (composeView == null) {
+                Timber.e("ComposeView not found in islandView")
+                return
+            }
 
-                Timber.d("Setting content on ComposeView")
-                composeView.setContent {
-                    androidx.compose.material3.MaterialTheme(
-                        colorScheme = if (prefs.getBoolean("darkMode", true)) {
-                            androidx.compose.material3.darkColorScheme()
-                        } else {
-                            androidx.compose.material3.lightColorScheme()
-                        }
+            Timber.d("Setting content on ComposeView")
+            composeView.setContent {
+                androidx.compose.material3.MaterialTheme(
+                    colorScheme = if (prefs.getBoolean("darkMode", true)) {
+                        androidx.compose.material3.darkColorScheme()
+                    } else {
+                        androidx.compose.material3.lightColorScheme()
+                    }
+                ) {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight()
+                            .clip(shapeFromPrefs())
+                            .background(Color.Black.copy(alpha = 0.9f))
+                            .padding(horizontal = 32.dp, vertical = 16.dp)
+                            .border(0.5.dp, Color.White.copy(alpha = 0.1f), shapeFromPrefs())
+                            .semantics { contentDescription = "Dynamic Island Content Scroll" },
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        LazyRow(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .fillMaxHeight()
-                                .clip(shapeFromPrefs())
-                                .background(Color.Black.copy(alpha = 0.9f))
-                                .padding(horizontal = 32.dp, vertical = 16.dp)
-                                .border(0.5.dp, Color.White.copy(alpha = 0.1f), shapeFromPrefs())
-                                .semantics { contentDescription = "Dynamic Island Content Scroll" },
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            items(_stackedContent.size) { index ->
-                                Box(
-                                    modifier = Modifier
-                                        .padding(horizontal = 16.dp)
-                                        .wrapContentWidth(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    _stackedContent[index]()
-                                }
+                        items(_stackedContent.size) { index ->
+                            Box(
+                                modifier = Modifier
+                                    .padding(horizontal = 16.dp)
+                                    .wrapContentWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                _stackedContent[index]()
                             }
                         }
                     }
                 }
-                islandView?.visibility = View.VISIBLE
+            }
+            islandView?.visibility = View.VISIBLE
+            if (!powerManager.isPowerSaveMode) {
                 Timber.d("Starting animation for islandView")
                 islandView?.animate()
                     ?.scaleX(1f)?.scaleY(1f)?.alpha(1f)
                     ?.setDuration(if (prefs.getBoolean("animations", true)) 300L else 0L)
                     ?.setInterpolator(OvershootInterpolator())
                     ?.start()
-                Timber.i("Dynamic Island updated and made visible")
-            } else {
-                islandView?.visibility = View.VISIBLE
-                Timber.i("Dynamic Island made visible (power save mode)")
             }
+            Timber.i("Dynamic Island updated and made visible")
         } catch (e: Exception) {
             Timber.e(e, "Failed to update Dynamic Island")
         }
@@ -192,10 +189,10 @@ class DynamicIslandManager @Inject constructor(
 
             if (cutout != null) {
                 val safeInsetTop = cutout.safeInsetTop
-                islandView?.y = safeInsetTop.toFloat() + statusBarHeight.toFloat() + 20f
+                islandView?.y = safeInsetTop.toFloat() + statusBarHeight.toFloat() + 100f
                 islandView?.x = (rootView.width - (islandView?.width ?: 0)) / 2f
             } else {
-                islandView?.y = statusBarHeight.toFloat() + 20f
+                islandView?.y = statusBarHeight.toFloat() + 100f
                 islandView?.x = (rootView.width - (islandView?.width ?: 0)) / 2f
             }
             Timber.i("Adjusted Dynamic Island position: x=${islandView?.x}, y=${islandView?.y}")
@@ -204,7 +201,7 @@ class DynamicIslandManager @Inject constructor(
             val displayMetrics = context.resources.displayMetrics
             val screenWidth = displayMetrics.widthPixels
             islandView?.x = (screenWidth - (islandView?.width ?: 0)) / 2f
-            islandView?.y = getStatusBarHeight().toFloat() + 20f
+            islandView?.y = getStatusBarHeight().toFloat() + 100f
         }
     }
 
@@ -333,7 +330,7 @@ class DynamicIslandManager @Inject constructor(
                 id = R.id.compose_host
                 layoutParams = ViewGroup.LayoutParams(islandWidth, islandHeight)
                 x = (screenWidth - islandWidth) / 2f
-                y = getStatusBarHeight().toFloat() + 20f
+                y = getStatusBarHeight().toFloat() + 100f
                 Timber.d("ComposeView created with width=$islandWidth, height=$islandHeight")
             }
         } catch (e: Exception) {
@@ -346,7 +343,7 @@ class DynamicIslandManager @Inject constructor(
                 id = R.id.compose_host
                 layoutParams = ViewGroup.LayoutParams(defaultWidth, defaultHeight)
                 x = (screenWidth - defaultWidth) / 2f
-                y = getStatusBarHeight().toFloat() + 20f
+                y = getStatusBarHeight().toFloat() + 100f
                 Timber.d("ComposeView created with default width=$defaultWidth, height=$defaultHeight")
             }
         }
